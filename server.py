@@ -9,7 +9,7 @@ port = 3000
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.settimeout(5)    # Il timeout serve per capire se si vuole interrompere il server
+server.settimeout(1)    # Il timeout serve per capire se si vuole interrompere il server
 server.bind((host, port))
 server.listen()
 
@@ -92,10 +92,15 @@ def handle_client(client):
                 get_adversary_socket_from_player_name(alias_player).close()
 
                 remove_player_and_adversary(alias_player)
-
-                # TODO rimuovi anche dagli aliases
             
-
+            elif message.startswith("[left_game] "):
+                alias_player = message[12:]
+                client_adv = get_adversary_socket_from_player_name(alias_player)
+                client_adv.send(message.encode())
+                client_adv.close()
+                client.close()
+                remove_player_and_adversary(alias_player)
+                
             # broadcast(message)
         except Exception as e:
             if client.fileno() == -1:

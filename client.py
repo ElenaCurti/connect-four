@@ -3,15 +3,31 @@ import socket
 import os
 from ForzaQuattro import ConnectFour
 
-# L'utente sceglie il proprio nome e si connette
-alias = input('Choose an alias >>> ')
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(('127.0.0.1', 3000))
 
-client.send(("[new_player] " + alias).encode('utf-8'))
+def manda_mess(messaggio):
+    assert isinstance(messaggio, str), "Message should be of type string"
+
+    global client
+    try:
+        client.send(messaggio.encode('utf-8'))
+
+    except ConnectionResetError:
+        print("Connection closed by server")
+        exit(1)
+
+# L'utente sceglie il proprio nome e si connette
+try:
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(('127.0.0.1', 3000))
+except ConnectionRefusedError:
+    print("Connection closed by server")
+    exit(1)
+
+alias = input('Choose an alias >>> ')
+manda_mess("[new_player] " + alias)
 while client.recv(1024).decode('utf-8') != "[ok]":
     alias = input('Choose a different alias >>> ')
-    client.send(("[new_player] " + alias).encode('utf-8'))
+    manda_mess("[new_player] " + alias)
 
 log_file = "log/log_client_"+alias+".txt"
 with open(log_file, "w") as file:
@@ -39,14 +55,14 @@ def nuovo_turno(colonna=-1):
                 print("Invalid input. Please enter a number.")
             except EOFError or KeyboardInterrupt:
                 print("\nYou abandoned the game :( ")
-                client.send(("[end_game] " + alias).encode())
+                manda_mess("[left_game] " + alias)
                 client.close()
                 exit(0)
     
     game.make_move(colonna)
     
     if turno_giocatore:
-        client.send(("[new_move] " + str(colonna) +  " " + alias ).encode('utf-8'))
+        manda_mess("[new_move] " + str(colonna) +  " " + alias )
     
     if game.check_winner():
         os.system('clear' if os.name == 'posix' else 'cls')
@@ -54,7 +70,7 @@ def nuovo_turno(colonna=-1):
         print(f"Player {ConnectFour.get_colored_symbol(game.current_player)} won!")
         if game.current_player == game.symbol_player:
             print("\nYOU WON!! :) :)" )
-            client.send(("[end_game] " + alias).encode())
+            manda_mess("[end_game] " + alias)
         else:
             print("\nYou lose  :( :(\nWanna play again? ") # TODO
         client.close()
@@ -68,8 +84,8 @@ def nuovo_turno(colonna=-1):
     
 
     
-def client_receive():
-    global stop, game
+if __name__ == "__main__":
+    # global stop, game
     # Thread in ascolto dei messaggi arrivati
     while True:
         try:
@@ -100,6 +116,10 @@ def client_receive():
                 print("You are player: ", game.get_colored_symbol_player())
                 print("It's your adversary's turn! Waiting for his/her move...")
 
+            elif message.startswith("[left_game] "):
+                print("Your adversary abandoned the game.\nYou win! :)")
+                client.close()
+                exit(0)
 
                 # game.print_board()
              
@@ -107,12 +127,16 @@ def client_receive():
 
                 
             # print(message)
+        except ConnectionResetError:
+            print("Connection closed by server")
+            exit(1)
         except KeyError:
             
             print('Chiusura thread receive!')
-            if stop:
-                client.close()
-            stop = False
+            client.close()
+            # if stop:
+            #     client.close()
+            # stop = False
             break
 
 
@@ -130,10 +154,10 @@ def client_receive():
 #             stop = False
 #             break
 
-stop = True 
+# stop = True 
 
-receive_thread = threading.Thread(target=client_receive)
-receive_thread.start()
+# receive_thread = threading.Thread(target=client_receive)
+# receive_thread.start()
 
 # send_thread = threading.Thread(target=client_send)
 # send_thread.start()
