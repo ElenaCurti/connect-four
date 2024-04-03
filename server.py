@@ -3,6 +3,8 @@ import threading
 import socket
 from player import *
 import traceback
+import os
+import shutil
 
 host = '127.0.0.1'
 port = 3000
@@ -13,7 +15,12 @@ server.settimeout(1)    # Il timeout serve per capire se si vuole interrompere i
 server.bind((host, port))
 server.listen()
 
-log_file = "log/server_log.txt"
+LOG_DIR = "log"
+if os.path.exists(LOG_DIR):
+    shutil.rmtree(LOG_DIR)
+os.makedirs(LOG_DIR)
+
+log_file = LOG_DIR+"/server_log.txt"
 with open(log_file, "w") as file:
     file.write("")
 
@@ -145,7 +152,7 @@ def check_received_new_connection():
             try:
                 print("", end="") # nop
             except KeyboardInterrupt:
-                print("Server chiuso")
+                print("Server closed")
                 sconnetti_tutti()
                 exit(1)
 

@@ -2,6 +2,7 @@ import threading
 import socket
 import os
 from ForzaQuattro import ConnectFour
+import re
 
 
 def manda_mess(messaggio):
@@ -23,11 +24,19 @@ except ConnectionRefusedError:
     print("Connection closed by server")
     exit(1)
 
-alias = input('Choose an alias >>> ')
-manda_mess("[new_player] " + alias)
-while client.recv(1024).decode('utf-8') != "[ok]":
-    alias = input('Choose a different alias >>> ')
-    manda_mess("[new_player] " + alias)
+pattern = re.compile(r'^[a-zA-Z0-9]+$')
+alias = input('Choose a name (only letters and numbers are allowed) >>> ')
+while True:
+    if pattern.match(alias):
+        manda_mess("[new_player] " + alias)
+        if client.recv(1024).decode('utf-8') == "[ok]":
+            break
+    
+    print("Error. The chosen name can't be used. It might be already used or it might contain unsupported characters (only letters and numbers are allowed).") 
+    alias = input("Please choose a different name >>> ")
+
+if not os.path.exists("log"):
+    os.makedirs("log")
 
 log_file = "log/log_client_"+alias+".txt"
 with open(log_file, "w") as file:
@@ -53,7 +62,7 @@ def nuovo_turno(colonna=-1):
                 
             except ValueError:
                 print("Invalid input. Please enter a number.")
-            except EOFError or KeyboardInterrupt:
+            except KeyboardInterrupt:
                 print("\nYou abandoned the game :( ")
                 manda_mess("[left_game] " + alias)
                 client.close()
@@ -65,21 +74,24 @@ def nuovo_turno(colonna=-1):
         manda_mess("[new_move] " + str(colonna) +  " " + alias )
     
     if game.check_winner():
-        os.system('clear' if os.name == 'posix' else 'cls')
-        game.print_board()
+        game.print_board(alias, avversario)
+        
+
         print(f"Player {ConnectFour.get_colored_symbol(game.current_player)} won!")
+        
         if game.current_player == game.symbol_player:
             print("\nYOU WON!! :) :)" )
             manda_mess("[end_game] " + alias)
         else:
-            print("\nYou lose  :( :(\nWanna play again? ") # TODO
+            print("\nYou lose  :( :(") # TODO play again
+        
         client.close()
         exit(0)
     game.switch_player()
 
-    os.system('clear' if os.name == 'posix' else 'cls')
-    game.print_board()
+    game.print_board(alias, avversario)
 
+    
 
     
 
@@ -99,7 +111,7 @@ if __name__ == "__main__":
                 avversario = message[13:]
                 
                 game = ConnectFour(turno)
-                game.print_board()
+                game.print_board(alias, avversario)
                 
                 print("A new game started! You are player: " + alias + ". Your adversary is:",  avversario)
                 if turno == 0:

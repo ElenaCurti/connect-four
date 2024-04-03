@@ -1,5 +1,9 @@
 import os
 
+BLUE = "\033[94m"
+RED = "\033[91m"
+RESET = "\033[0m"
+
 class ConnectFour:
     def __init__(self, turno):
         self.board = [[' ' for _ in range(7)] for _ in range(6)]
@@ -17,10 +21,10 @@ class ConnectFour:
         if simbolo == 'X':
             # '\033[94m' sets text color to blue
             # '\033[0m'  resets color
-            return "\033[94mX\033[0m"
+            return BLUE + "X" + RESET
         elif simbolo =='O':
             # red
-            return "\033[91mO\033[0m"
+            return RED + "O" + RESET
         else:
             return simbolo
     
@@ -30,27 +34,39 @@ class ConnectFour:
                
 
 
-    def print_board_old(self):
-        for row in self.board:
-            # print(row)
-            print("| ", end="")
-            print(" | ".join(row), end=" |\n")
+    # def print_board_old(self):
+    #     for row in self.board:
+    #         # print(row)
+    #         print("| ", end="")
+    #         print(" | ".join(row), end=" |\n")
 
-        print("-" * 29)
-        print("  1   2   3   4   5   6   7") # TODO in a for
+    #     print("-" * 29)
+    #     print("  1   2   3   4   5   6   7") # TODO in a for
     
-    def print_board(self):
-        os.system('clear' if os.name == 'posix' else 'cls')  # Clear the terminal
-        print("+" + "-" * 27 + "+")
+    def print_board(self, nome_player1, nome_player2):
+        os.system('clear' if os.name == 'posix' else 'cls') # Clear the terminal
+        
+        # Print player1 vs player2
+        print(" "*35, end="")
+        if self.symbol_player == 'X':
+            print(f"{BLUE}({nome_player1}){RESET} vs {RED}({nome_player2}){RESET}")
+        else:
+            print(f"{RED}({nome_player1}){RESET} vs {BLUE}({nome_player2}){RESET}")
 
+        # Print border and content of the scoreboard
+        print("+" + "-" * 27 + "+")
         for row in self.board:
             print("| ", end="")
             for col in row:
                 print(ConnectFour.get_colored_symbol(col), end=" | ")
-            # print("\n+" + " " * 29 + "+")
             print()
-        print("+" + "-" * 27 + "+")
-        print("  1   2   3   4   5   6   7")
+        print("+" + "-" * 27 + "+", "\n  ", end="")
+
+        # Print scoreboard index column
+        for i in range(1,8):
+            print(i, "  ", end="")
+        print("\n")
+        # print("  1   2   3   4   5   6   7")
         
 
 
