@@ -9,9 +9,13 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(('127.0.0.1', 3000))
 
 client.send(("[new_player] " + alias).encode('utf-8'))
-while client.recv(1024).decode('utf-8') != "[no]":
+while client.recv(1024).decode('utf-8') != "[ok]":
     alias = input('Choose a different alias >>> ')
     client.send(("[new_player] " + alias).encode('utf-8'))
+
+log_file = "log/log_client_"+alias+".txt"
+with open(log_file, "w") as file:
+    file.write("")
 
 game = None
 
@@ -52,7 +56,7 @@ def nuovo_turno(colonna=-1):
             print("\nYOU WON!! :) :)" )
             client.send(("[end_game] " + alias).encode())
         else:
-            print("\nYou lose\t :( :(\nWanna play again? ") # TODO
+            print("\nYou lose  :( :(\nWanna play again? ") # TODO
         client.close()
         exit(0)
     game.switch_player()
@@ -70,7 +74,8 @@ def client_receive():
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            
+            with open(log_file, "a") as file:
+                file.write(message + "\n")
             if message == "[wait_player]":
                 print("Waiting for a new player to join...")
             elif message.startswith("[new_game] "):
@@ -80,7 +85,7 @@ def client_receive():
                 game = ConnectFour(turno)
                 game.print_board()
                 
-                print("A new game started! Your adversary is:",  avversario)
+                print("A new game started! You are player: " + alias + ". Your adversary is:",  avversario)
                 if turno == 0:
                     nuovo_turno(-1)
                 

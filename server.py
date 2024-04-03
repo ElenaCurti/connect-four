@@ -1,6 +1,8 @@
 'Chat Room Connection - Client-To-Client'
 import threading
 import socket
+from player import *
+import traceback
 
 host = '127.0.0.1'
 port = 3000
@@ -11,24 +13,22 @@ server.settimeout(5)    # Il timeout serve per capire se si vuole interrompere i
 server.bind((host, port))
 server.listen()
 
+log_file = "log/server_log.txt"
+with open(log_file, "w") as file:
+    file.write("")
+
 # Dict of clients (key = name of the player, value = client socket)
-clients = {}
+# clients = {}
 
 # List of players' names. It's a list of tuple of players. Every player in the same tuple is playing in the same match
-aliases = []
-
-
-def broadcast(message):
-    for client in clients:
-        client.send(message)
+# aliases = []
 
 
 def sconnetti_tutti():
-    global clients, aliases
-    for client in clients:
-        client.close()
-    aliases = []
-    clients = {}
+    all_socket = get_all_socket()
+    for s in all_socket:
+        s.close()
+    
 
 
 def search_tuple_list(tuple_list, target):
@@ -46,54 +46,70 @@ def handle_client(client):
     # Function to handle clients'connections
     while True:
         try:
+            if client.fileno() == -1:
+                client.close()
+                break # Fine thread per il client
+            # print(f"{client=}")
+            
             message = str(client.recv(1024).decode())
-            print(message)
+            with open(log_file, "a") as file:
+                file.write(str(client) + "\t" + message + "\n")
+            
             if message.startswith("[new_player] "): 
                 # A new player joined the game. I check that name is univoque... 
                 alias = message[13:]
 
                 print("A new player attempted to play with name", alias,"\tResult:",  end="")
-                if clients.keys().__contains__(alias):
+                if player_exists(alias):
                     client.send("[no]".encode())
                     print("Refused!")
                     continue
                 
+                add_player(alias, client)
                 client.send("[ok]".encode())
-                clients[alias] = client
                 print("OK!")
 
                 # ... and I seek for an adversary (if any)
-                if len(aliases) >0 and len(aliases[-1]) == 1:
-                    avversario = aliases[-1][0]
-                    print(alias, "will play against", avversario)
-                    aliases[-1] = (avversario, alias)
-                    clients[avversario].send(("[new_game] 0 " + alias).encode()) # If in the message there is 0 -> it's the players' turn. 
-                    clients[alias].send(("[new_game] 1 " + avversario).encode()) # Otherwise -> it's the adversary's turn
+                avversario_name = find_adversary_for_player(alias)
+                if avversario_name != None:
+                    client_adv = set_adversary(alias, avversario_name)                    
+                    print(alias, "will play against", avversario_name)
+                    
+                    client.send(("[new_game] 1 " + avversario_name).encode()) # If in the message there is 0 -> it's the players' turn. 
+                    client_adv.send(("[new_game] 0 " + alias).encode())       # If in the message there is 1 -> it's the adversary's turn
                 else:
                     print(alias, "is waiting for a new player")
-                    aliases.append((alias,))
-                    clients[alias].send(("[wait_player]").encode())
+                    # aliases.append((alias,))
+                    client.send(("[wait_player]").encode())
 
             elif message.startswith("[new_move] "):
                 alias_player = message[13:]
-                alias_avversario = search_tuple_list(aliases, alias_player)
-                clients[alias_avversario].send(message.encode())
+                client_adv = get_adversary_socket_from_player_name(alias_player) 
+                client_adv.send(message.encode())
             elif message.startswith("[end_game] "):
                 alias_player = message[11:]
-                alias_avversario = search_tuple_list(aliases, alias_player)
-                clients.pop(alias_player, None)
-                clients.pop(alias_avversario, None)
+                get_player_socket(alias_player).close()
+                get_adversary_socket_from_player_name(alias_player).close()
+
+                remove_player_and_adversary(alias_player)
+
                 # TODO rimuovi anche dagli aliases
             
 
             # broadcast(message)
-        except:
-            index = clients[client]
-            clients.pop(client, None) # FIX questo
-            client.close()
-            alias = aliases[index]
-            broadcast(f'{alias} has left the chat room!'.encode('utf-8'))
-            aliases.remove(alias)
+        except Exception as e:
+            if client.fileno() == -1:
+                client.close()
+            # Exception handling
+            # print("An error occurred:")
+            # traceback.print_exc()  #
+            # print("Exception")
+            # index = clients[client]
+            # clients.pop(client, None) # FIX questo
+            # client.close()
+            # alias = aliases[index]
+            # broadcast(f'{alias} has left the chat room!'.encode('utf-8'))
+            # aliases.remove(alias)
             break
 # Main function to receive the clients connection
 
@@ -124,7 +140,7 @@ def check_received_new_connection():
             try:
                 print("", end="") # nop
             except KeyboardInterrupt:
-                print("Fine")
+                print("Server chiuso")
                 sconnetti_tutti()
                 exit(1)
 
