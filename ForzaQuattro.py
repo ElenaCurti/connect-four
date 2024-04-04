@@ -19,11 +19,8 @@ class ConnectFour:
 
     def get_colored_symbol(simbolo):
         if simbolo == 'X':
-            # '\033[94m' sets text color to blue
-            # '\033[0m'  resets color
             return BLUE + "X" + RESET
         elif simbolo =='O':
-            # red
             return RED + "O" + RESET
         else:
             return simbolo
@@ -31,20 +28,10 @@ class ConnectFour:
     def get_colored_symbol_player(self):
         return ConnectFour.get_colored_symbol(self.symbol_player)
     
-               
-
-
-    # def print_board_old(self):
-    #     for row in self.board:
-    #         # print(row)
-    #         print("| ", end="")
-    #         print(" | ".join(row), end=" |\n")
-
-    #     print("-" * 29)
-    #     print("  1   2   3   4   5   6   7") # TODO in a for
     
     def print_board(self, nome_player1, nome_player2):
-        os.system('clear' if os.name == 'posix' else 'cls') # Clear the terminal
+        # Clear the terminal
+        os.system('clear' if os.name == 'posix' else 'cls') 
         
         # Print player1 vs player2
         print(" "*35, end="")
@@ -66,10 +53,7 @@ class ConnectFour:
         for i in range(1,8):
             print(i, "  ", end="")
         print("\n")
-        # print("  1   2   3   4   5   6   7")
         
-
-
     def is_valid_move(self, column):
         return 1 <= column <= 7 and self.board[0][column - 1] == ' '
 

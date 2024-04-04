@@ -6,94 +6,70 @@ import traceback
 import os
 import shutil
 
-host = '127.0.0.1'
-port = 3000
-
-
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.settimeout(1)    # Il timeout serve per capire se si vuole interrompere il server
-server.bind((host, port))
-server.listen()
-
-LOG_DIR = "log"
-if os.path.exists(LOG_DIR):
-    shutil.rmtree(LOG_DIR)
-os.makedirs(LOG_DIR)
-
-log_file = LOG_DIR+"/server_log.txt"
-with open(log_file, "w") as file:
-    file.write("")
-
-# Dict of clients (key = name of the player, value = client socket)
-# clients = {}
-
-# List of players' names. It's a list of tuple of players. Every player in the same tuple is playing in the same match
-# aliases = []
-
-
-def sconnetti_tutti():
+def disconnect_all_users():
+    """Function that disconnects all users"""
     all_socket = get_all_socket()
     for s in all_socket:
         s.close()
+
+def manda_mess(client, messaggio):
+    """Function that sends a message to a client and stores the message in the log file"""
+    assert isinstance(messaggio, str), "Message should be of type string"
+    assert isinstance(client, socket.socket), "client should be of type socket.socket"
+
+    client.send(messaggio.encode('utf-8'))
+    with open(log_file, "a") as file:
+        file.write(str(client) + "\tOUT >\t" + messaggio + "\n")
+
     
-
-
-def search_tuple_list(tuple_list, target):
-    mapping_dict = {key: value for key, value in tuple_list}
-    reverse_mapping_dict = {value: key for key, value in tuple_list}
-    
-    if target in mapping_dict:
-        return mapping_dict[target]
-    elif target in reverse_mapping_dict:
-        return reverse_mapping_dict[target]
-    else:
-        return None
-
 def handle_client(client):
-    # Function to handle clients'connections
+    """Function to handle clients'connections"""
     while True:
         try:
-            if client.fileno() == -1:
+            if client.fileno() == -1: # Client closed it's connection
                 client.close()
-                break # Fine thread per il client
-            # print(f"{client=}")
+                break 
             
             message = str(client.recv(1024).decode())
             with open(log_file, "a") as file:
-                file.write(str(client) + "\t" + message + "\n")
+                file.write(str(client) + "\tIN  <\t" + message + "\n")
             
             if message.startswith("[new_player] "): 
-                # A new player joined the game. I check that name is univoque... 
+                # A new player joined the game. 
                 alias = message[13:]
-
+                
+                # I check that the chosen name is univoque... 
                 print("A new player attempted to play with name", alias,"\tResult:",  end="")
                 if player_exists(alias):
-                    client.send("[no]".encode())
+                    manda_mess(client, "[no]")
                     print("Refused!")
                     continue
                 
                 add_player(alias, client)
-                client.send("[ok]".encode())
+                manda_mess(client, "[ok]")
                 print("OK!")
 
                 # ... and I seek for an adversary (if any)
                 avversario_name = find_adversary_for_player(alias)
                 if avversario_name != None:
+                    # If there is an adversary, I pair the current player with him/her
                     client_adv = set_adversary(alias, avversario_name)                    
                     print(alias, "will play against", avversario_name)
                     
-                    client.send(("[new_game] 1 " + avversario_name).encode()) # If in the message there is 0 -> it's the players' turn. 
-                    client_adv.send(("[new_game] 0 " + alias).encode())       # If in the message there is 1 -> it's the adversary's turn
+                    manda_mess(client, "[new_game] 1 " + avversario_name)     # If in the message there is 1 -> it's the adversary's turn
+                    manda_mess(client_adv, "[new_game] 0 " + alias)           # If in the message there is 0 -> it's the players' turn. 
                 else:
+                    # If there isn't an adversary, i communicate to the client to wait
                     print(alias, "is waiting for a new player")
-                    # aliases.append((alias,))
-                    client.send(("[wait_player]").encode())
+                    manda_mess(client, "[wait_player]")
 
             elif message.startswith("[new_move] "):
+                # If a player made a move, the server will communicate it to the adversary
                 alias_player = message[13:]
                 client_adv = get_adversary_socket_from_player_name(alias_player) 
-                client_adv.send(message.encode())
+                manda_mess(client_adv, message)
             elif message.startswith("[end_game] "):
+                # If the match ended, the server will communicate it to the adversary and the players are removed 
                 alias_player = message[11:]
                 get_player_socket(alias_player).close()
                 get_adversary_socket_from_player_name(alias_player).close()
@@ -101,51 +77,25 @@ def handle_client(client):
                 remove_player_and_adversary(alias_player)
             
             elif message.startswith("[left_game] "):
+                # If a player abandon the game, the server will communicate it to the adversary and the players are removed
                 alias_player = message[12:]
                 client_adv = get_adversary_socket_from_player_name(alias_player)
-                client_adv.send(message.encode())
+                manda_mess(client_adv, message)
                 client_adv.close()
                 client.close()
                 remove_player_and_adversary(alias_player)
                 
-            # broadcast(message)
         except Exception as e:
             if client.fileno() == -1:
                 client.close()
-            # Exception handling
-            # print("An error occurred:")
-            # traceback.print_exc()  #
-            # print("Exception")
-            # index = clients[client]
-            # clients.pop(client, None) # FIX questo
-            # client.close()
-            # alias = aliases[index]
-            # broadcast(f'{alias} has left the chat room!'.encode('utf-8'))
-            # aliases.remove(alias)
             break
-# Main function to receive the clients connection
 
 
 def check_received_new_connection():
+    """Main function to receive the clients connection"""
     while True:
         try:
             client, address = server.accept()
-            # print(f'connection is established with {str(address)}')
-            
-            # client.send('[player_name]'.encode('utf-8'))
-            # alias = client.recv(1024)
-            # if aliases.__contains__(alias):
-            #     client.send('[NO]'.encode('utf-8'))
-            #     continue
-            # else:
-            #     client.send('[OK]'.encode('utf-8'))
-
-            # aliases.append(alias)
-            # clients.append(client)
-            
-            # print(f'The alias of this client is {alias}'.encode('utf-8'))
-            # broadcast(f'{alias} has connected to the chat room'.encode('utf-8'))
-            # client.send('you are now connected!'.encode('utf-8'))
             thread = threading.Thread(target=handle_client, args=(client,))
             thread.start()
         except TimeoutError:
@@ -153,9 +103,27 @@ def check_received_new_connection():
                 print("", end="") # nop
             except KeyboardInterrupt:
                 print("Server closed")
-                sconnetti_tutti()
+                disconnect_all_users()
                 exit(1)
 
 if __name__ == "__main__":
-    print('Server is running and listening ...')
+    host = '127.0.0.1'
+    port = 3000
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.settimeout(1)            # Timeout is necessary to check if user wants to terminate the server using CTRL+C
+    server.bind((host, port))
+    server.listen()
+
+    # I reset the log directory and create a log file for the server
+    LOG_DIR = "log"
+    if os.path.exists(LOG_DIR):
+        shutil.rmtree(LOG_DIR)
+    os.makedirs(LOG_DIR)
+
+    log_file = LOG_DIR+"/server_log.txt"
+    with open(log_file, "w") as file:
+        file.write("")
+
+    print('Server is running and listening. To shutdown press CRTL+C ...')
     check_received_new_connection()
