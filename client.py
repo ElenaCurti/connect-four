@@ -1,6 +1,6 @@
-import threading
+# import threading
 import socket
-import os
+# import os
 from ForzaQuattro import ConnectFour
 import re
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(('127.0.0.1', 3000))
     except ConnectionRefusedError:
-        print("Connection closed by server")
+        print("Server is not running")
         exit(1)
 
     # User must first choose an univoque valid name

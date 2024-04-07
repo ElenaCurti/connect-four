@@ -17,9 +17,10 @@ def manda_mess(client, messaggio):
     assert isinstance(messaggio, str), "Message should be of type string"
     assert isinstance(client, socket.socket), "client should be of type socket.socket"
 
-    client.send(messaggio.encode('utf-8'))
-    with open(log_file, "a") as file:
-        file.write(str(client) + "\tOUT >\t" + messaggio + "\n")
+    if client != None:
+        client.send(messaggio.encode('utf-8'))
+        with open(log_file, "a") as file:
+            file.write(str(client) + "\tOUT >\t" + messaggio + "\n")
 
     
 def handle_client(client):
@@ -31,6 +32,10 @@ def handle_client(client):
                 break 
             
             message = str(client.recv(1024).decode())
+            if message == "":
+                client.close()
+                break 
+            
             with open(log_file, "a") as file:
                 file.write(str(client) + "\tIN  <\t" + message + "\n")
             
@@ -109,8 +114,9 @@ def check_received_new_connection():
 if __name__ == "__main__":
     host = '127.0.0.1'
     port = 3000
-
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    # Creation of the listening socket
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IPv4. Bidirectional, reliable, sequenced, and unduplicated flow of data without record
     server.settimeout(1)            # Timeout is necessary to check if user wants to terminate the server using CTRL+C
     server.bind((host, port))
     server.listen()
@@ -125,5 +131,6 @@ if __name__ == "__main__":
     with open(log_file, "w") as file:
         file.write("")
 
+    # Server running
     print('Server is running and listening. To shutdown press CRTL+C ...')
     check_received_new_connection()
